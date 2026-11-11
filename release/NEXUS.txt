@@ -1,0 +1,62 @@
+=== NAME ===
+Corner Shops
+
+=== SHORT DESCRIPTION (summary) ===
+The hotel and motel keepers sell everyday supplies: food, drinks, can openers, matches, batteries, paper, envelopes, stamps and more. Shift+E while looking at them opens the game's own trade screen.
+
+=== CATEGORY ===
+Gameplay (or Miscellaneous)
+
+=== FILE DESCRIPTION ===
+Obenseuer-CornerShops-v0.1.0.rar : Corner Shops 0.1.0 for BepInEx 6. Extract into the Obenseuer folder.
+
+=== CHANGELOG (Nexus "Changelogs" tab) ===
+0.1.0
+- First release.
+
+=== FULL DESCRIPTION (BBCode) ===
+[size=5][b]Corner Shops[/b][/size]
+[i]Running out of bread or matches shouldn't mean a trip across the city.[/i]
+
+The people who run the hotels now keep a little shop behind the counter:
+[list]
+[*][b]Arvid Vinter[/b]
+[*][b]Carl Hagen[/b] at Hotel Korso (Bazaar)
+[*][b]Joran Kallio[/b] at The Pickaxe Motel (mines)
+[/list]
+
+[size=4][b]How to use[/b][/size]
+Look at one of them: the prompt shows [b](Talk)   Shift+E: Shop[/b]. Press [b]Shift+E[/b] and the game's own trade screen opens with their stock. Plain [b]E[/b] still talks to them as before.
+
+[size=4][b]What they sell[/b][/size]
+[list]
+[*][b]Food:[/b] rye, white and multigrain bread, canned meat, tuna, sardines, pea and tomato soup, peas, peaches, Lenkki sausages, potato chips, chocolate and candy bars.
+[*][b]Drinks:[/b] Moca-Cola, Splurt, Fail Soda, Ice Tea, milk.
+[*][b]Utility:[/b] can opener, matchbox, lighter, candles, AA and D batteries, toilet paper, soap, bandages, painkillers, duct tape, glue.
+[*][b]Paperwork:[/b] paper, notebook, envelopes, stamps, ink, fancy paper.
+[/list]
+The stock refills every in-game day. They also buy things from you, with a daily cash amount, just like the game's traders.
+
+[size=4][b]Built on the game's own trading[/b][/size]
+Buying, selling, prices, the wealth line and the stolen-item rules are the game's own trader system, so everything behaves like any other trader. Items you buy are yours, not stolen.
+
+[size=4][b]Configuration[/b][/size]
+In [i]BepInEx/config/com.juanberta.obenseuer.cornershops.cfg[/i]:
+[list]
+[*][b]Vendors[/b]: which NPCs run a shop (add any NPC by name).
+[*][b]ShopKey[/b]: Shift+E by default.
+[*][b]Items[/b]: the stock list, as [i]Item name:amount[/i] separated by commas, with item names as the game shows them.
+[*][b]BuyPriceFactor[/b] (1.25), [b]SellPriceFactor[/b] (0.6), [b]BuysFromPlayer[/b] (on), [b]VendorCash[/b] (2000 OC a day).
+[/list]
+
+[size=4][b]Notes[/b][/size]
+[list]
+[*]The stock isn't saved: it refills each new day and after restarting the game.
+[*]Works well with [b]Bank Inventory[/b] (its storage search works in the shop) and [b]Diegetic UI[/b] (paper look).
+[*]Requires BepInEx 6 (be.697 or newer).
+[/list]
+
+[size=4][b]Installation[/b][/size]
+Extract the archive into the Obenseuer game folder. The DLL ends up in [i]BepInEx/plugins/Obenseuer-CornerShops/[/i].
+
+Source: https://github.com/JuanBerta/Obenseuer-CornerShops
