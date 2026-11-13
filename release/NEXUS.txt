@@ -8,9 +8,13 @@ The hotel and motel keepers sell everyday supplies: food, drinks, can openers, m
 Gameplay (or Miscellaneous)
 
 === FILE DESCRIPTION ===
-Obenseuer-CornerShops-v0.1.0.rar : Corner Shops 0.1.0 for BepInEx 6. Extract into the Obenseuer folder.
+Obenseuer-CornerShops-v0.2.0.rar : Corner Shops 0.2.0 for BepInEx 6. Extract into the Obenseuer folder.
 
 === CHANGELOG (Nexus "Changelogs" tab) ===
+0.2.0
+- The shops are saved: what's on the shelf (including what you sold them), their cash and the restock day are kept in your save. A new game or another character gets its own shops.
+- Sort button on the shop screen. With Sort By installed it uses your chosen order (the button shows it).
+- Special Orders support: with Special Orders 1.0.6 the vendors take orders for anything on their stock list.
 0.1.0
 - First release.
 
@@ -35,7 +39,7 @@ Look at one of them: the prompt shows [b](Talk)   Shift+E: Shop[/b]. Press [b]Sh
 [*][b]Utility:[/b] can opener, matchbox, lighter, candles, AA and D batteries, toilet paper, soap, bandages, painkillers, duct tape, glue.
 [*][b]Paperwork:[/b] paper, notebook, envelopes, stamps, ink, fancy paper.
 [/list]
-The stock refills every in-game day. They also buy things from you, with a daily cash amount, just like the game's traders.
+The stock refills every in-game day and is kept in your save. They also buy things from you, with a daily cash amount, just like the game's traders. A [b]Sort[/b] button on the shop screen tidies their shelf.
 
 [size=4][b]Built on the game's own trading[/b][/size]
 Buying, selling, prices, the wealth line and the stolen-item rules are the game's own trader system, so everything behaves like any other trader. Items you buy are yours, not stolen.
@@ -51,7 +55,8 @@ In [i]BepInEx/config/com.juanberta.obenseuer.cornershops.cfg[/i]:
 
 [size=4][b]Notes[/b][/size]
 [list]
-[*]The stock isn't saved: it refills each new day and after restarting the game.
+[*]Works with [b]Special Orders[/b]: order anything they stock in bulk, delivered by mail.
+[*]Works with [b]Sort By[/b]: the shop's Sort button uses your chosen order.
 [*]Works well with [b]Bank Inventory[/b] (its storage search works in the shop) and [b]Diegetic UI[/b] (paper look).
 [*]Requires BepInEx 6 (be.697 or newer).
 [/list]

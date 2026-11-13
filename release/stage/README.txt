@@ -1,4 +1,4 @@
-Obenseuer Corner Shops 0.1.0 (BepInEx 6)
+Obenseuer Corner Shops 0.2.0 (BepInEx 6)
 ========================================
 
 Install: extract into the Obenseuer folder (needs BepInEx 6 be.697 or newer).
@@ -10,4 +10,5 @@ and press Shift+E to open their shop. E still talks to them.
 Config: BepInEx\config\com.juanberta.obenseuer.cornershops.cfg
 (vendors, key, stock list "Item name:amount", prices, vendor cash).
 
-Stock refills every in-game day and isn't saved.
+Stock refills every in-game day and is saved with your game.
+A Sort button on the shop screen sorts their shelf.

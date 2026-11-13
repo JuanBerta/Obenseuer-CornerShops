@@ -13,15 +13,21 @@ namespace CornerShopsMod
 	/// </summary>
 	public class ShopShelf : Storage
 	{
+		// Saved with the shelf (public fields go into the save like the game's own storages).
+		public int stockedDay = int.MinValue;   // in-game day the shelf was last restocked
+		public float cash = -1f;                // the vendor's cash for buying from you
+		public string ownerCharacter = "";      // the character whose game this stock belongs to
+		[NonSerialized] public ShopTrade Till;
+
 		private static readonly FieldInfo startItemsField = AccessTools.Field(typeof(Storage), "startItems");
 		private static readonly FieldInfo startDoneField = AccessTools.Field(typeof(Storage), "startDone");
 		private static readonly FieldInfo slotPanelField = AccessTools.Field(typeof(Storage), "slotPanel");
 		private static readonly FieldInfo dropValuesField = AccessTools.Field(typeof(Storage), "dropItemValues");
 
-		public void Setup(string shelfTitle, int slots)
+		public void Setup(string guid, string shelfTitle, int slots)
 		{
-			GUID = "";
-			global = false;
+			GUID = guid;
+			global = true;
 			title = shelfTitle;
 			useMessage = "Shop";
 			interactDisabled = true;
@@ -68,12 +74,60 @@ namespace CornerShopsMod
 			}
 		}
 
-		// Not saved: the shelf is refilled by the mod.
+		public void RebuildSlots()
+		{
+			if (storageSlots == null) storageSlots = new StorageSlot[0];
+			Slots = new SlotController[storageSlots.Length];
+			for (int i = 0; i < Slots.Length; i++)
+			{
+				if (storageSlots[i] == null) storageSlots[i] = new StorageSlot();
+				var sc = new SlotController { itemStack = storageSlots[i] };
+				try { sc.itemStack.SetItemReference(); } catch (Exception) { }
+				Slots[i] = sc;
+			}
+			for (int i = 0; i < Slots.Length; i++) Slots[i].Siblings = Slots;
+		}
+
+		/// <summary>Forget the stock (a new game, or a save from before the stock was saved): the next
+		/// visit restocks.</summary>
+		public void Reset(string character)
+		{
+			Clear();
+			stockedDay = int.MinValue;
+			cash = -1f;
+			ownerCharacter = character ?? "";
+		}
+
+		// Saved in the save's global data through the hooks for objects that live across scenes, like the
+		// Bank Inventory bank: what's on the shelf (including what you sold them), the restock day and their cash.
 		public override bool OnSavingGame() { return true; }
-		public override bool OnSavingGameSpecial() { return true; }
 		public override bool OnLoadingGame() { return true; }
-		public override bool OnLoadingGameSpecial() { return true; }
 		public override bool OnLoadingGameDestructibleListCheck() { return true; }
+
+		public override bool OnSavingGameSpecial()
+		{
+			if (Till != null) cash = Till.Cash;
+			if (string.IsNullOrEmpty(ownerCharacter)) ownerCharacter = CornerShopsPlugin.CurrentCharacter() ?? "";
+			return SaveController.SerializeData(this, global);
+		}
+
+		public override bool OnLoadingGameSpecial()
+		{
+			bool ok = false;
+			try { ok = SaveController.DeSerializeData(this, global); } catch (Exception) { ok = false; }
+			if (ok)
+			{
+				RebuildSlots();
+				if (Till != null && cash >= 0f) Till.Cash = cash;
+				ownerCharacter = CornerShopsPlugin.CurrentCharacter() ?? ownerCharacter;
+			}
+			else
+			{
+				RebuildSlots();
+				Reset(CornerShopsPlugin.CurrentCharacter());
+			}
+			return true;
+		}
 	}
 
 	/// <summary>The shop's till: the game's own <see cref="Trade"/>, so buying, selling, prices, the trade
@@ -105,6 +159,9 @@ namespace CornerShopsMod
 			if (storageField != null) storageField.SetValue(this, shelf);
 			if (startDoneField != null) startDoneField.SetValue(this, true);   // skip Trade.Start (opening hours, timers)
 		}
+
+		/// <summary>The vendor's cash for buying from you (the game's own trader money).</summary>
+		public float Cash { get { return currentMoney; } set { currentMoney = value; } }
 
 		public override bool OnSavingGame() { return true; }
 		public override bool OnSavingGameSpecial() { return true; }

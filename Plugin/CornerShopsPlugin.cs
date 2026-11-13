@@ -16,13 +16,13 @@ namespace CornerShopsMod
 	/// <summary>
 	/// Corner Shops: the hotel and motel keepers (Arvid Vinter, Carl Hagen at Hotel Korso, Joran Kallio at the
 	/// Pickaxe Motel) sell everyday supplies: food, drinks and utility items. Look at one and press Shift+E to open
-	/// the game's own trade screen with their stock; plain E still talks. Stock refills every in-game day.
+	/// the game's own trade screen with their stock; plain E still talks. Stock refills every in-game day and is kept in your save.
 	/// </summary>
 	[BepInPlugin(Guid, "Obenseuer Corner Shops", Version)]
 	public class CornerShopsPlugin : BaseUnityPlugin
 	{
 		public const string Guid = "com.juanberta.obenseuer.cornershops";
-		public const string Version = "0.1.0";
+		public const string Version = "0.2.0";
 
 		internal static ManualLogSource Log;
 		internal static CornerShopsPlugin Instance;
@@ -55,7 +55,6 @@ namespace CornerShopsMod
 			public GameObject Root;
 			public ShopShelf Shelf;
 			public ShopTrade Till;
-			public int StockedDay = int.MinValue;
 		}
 
 		private void Awake()
@@ -76,10 +75,14 @@ namespace CornerShopsMod
 			traderMoney = Config.Bind("Prices", "VendorCash", 2000, new ConfigDescription("Cash (OC) a vendor has each day to buy from you.", new AcceptableValueRange<int>(0, 100000)));
 
 			var harmony = new Harmony(Guid);
+			MethodInfo saveLoad = AccessTools.Method(typeof(SaveController), "ExecuteDontDestroyOnLoadSaveLoadFunctions");
+			if (saveLoad != null) harmony.Patch(saveLoad, prefix: new HarmonyMethod(typeof(CornerShopsPlugin), nameof(BeforeSaveLoad)));
+			else Logger.LogWarning("Couldn't find the save hook: the shops' stock won't be saved.");
 			harmony.Patch(AccessTools.Method(typeof(InteractObjects), "UseInteractable"),
 				prefix: new HarmonyMethod(typeof(CornerShopsPlugin), nameof(UsePrefix)));
 			harmony.Patch(AccessTools.Method(typeof(InteractableTalk), "UpdateUseMessage"),
 				postfix: new HarmonyMethod(typeof(CornerShopsPlugin), nameof(UseMessagePostfix)));
+			gameObject.AddComponent<ShopSortButton>();
 			Logger.LogInfo("Obenseuer Corner Shops " + Version + " loaded. Vendors: " + vendors.Value);
 		}
 
@@ -176,6 +179,37 @@ namespace CornerShopsMod
 			return string.Join("+", parts.ToArray());
 		}
 
+		// ---- For other mods (Special Orders) ----
+
+		/// <summary>The shop (the game's Trade) of the vendor with this name, built if needed and stocked for
+		/// today; null if that person doesn't run a corner shop.</summary>
+		public static Trade ShopFor(string npcName)
+		{
+			var me = Instance;
+			if (me == null || string.IsNullOrEmpty(npcName) || !me.IsVendorName(npcName)) return null;
+			try
+			{
+				Shop shop = me.GetShop(npcName.Trim());
+				int day = TimeOfDayAzure.instance != null ? TimeOfDayAzure.instance.dayCounter : 0;
+				if (shop.Shelf.stockedDay != day) { me.Restock(shop); shop.Shelf.stockedDay = day; }
+				return shop.Till;
+			}
+			catch (Exception e) { Log.LogWarning("ShopFor " + npcName + ": " + e.Message); return null; }
+		}
+
+		/// <summary>Everything the corner shops stock (the config list), for ordering in bulk.</summary>
+		public static List<Item> StockItems()
+		{
+			var me = Instance;
+			var list = new List<Item>();
+			if (me == null) return list;
+			foreach (var kv in me.StockList()) if (!list.Contains(kv.Key)) list.Add(kv.Key);
+			return list;
+		}
+
+		/// <summary>True for a till made by this mod.</summary>
+		public static bool IsCornerShop(Trade t) { return t is ShopTrade; }
+
 		// ---- Opening a shop ----
 
 		private void TryOpen(InteractableTalk talk)
@@ -190,10 +224,10 @@ namespace CornerShopsMod
 				openedFrame = Time.frameCount;
 				Shop shop = GetShop(name);
 				int day = TimeOfDayAzure.instance != null ? TimeOfDayAzure.instance.dayCounter : 0;
-				if (shop.StockedDay != day)
+				if (shop.Shelf.stockedDay != day)
 				{
 					Restock(shop);
-					shop.StockedDay = day;
+					shop.Shelf.stockedDay = day;
 				}
 				shop.Till.allowedCategories = buysFromPlayer.Value ? new string[0] : new[] { "_item_CornerShopsNothing" };
 				shop.Shelf.BindPanel();
@@ -203,20 +237,55 @@ namespace CornerShopsMod
 			catch (Exception e) { Log.LogError("Opening " + name + "'s shop: " + e); }
 		}
 
+		// Before the game saves or loads: every vendor's shop exists, so its stock is written and read.
+		private static void BeforeSaveLoad()
+		{
+			var me = Instance;
+			if (me == null) return;
+			try
+			{
+				foreach (string n in me.VendorNames()) me.Build(n);
+			}
+			catch (Exception e) { Log.LogWarning("Shops before save/load: " + e.Message); }
+		}
+
+		private IEnumerable<string> VendorNames()
+		{
+			IsVendorName("x");   // refresh the parsed list
+			return vendorNames.ToList();
+		}
+
 		private Shop GetShop(string name)
 		{
+			Shop shop = Build(name);
+			// A new character, or a different save: its own shops start fresh.
+			string me = CurrentCharacter();
+			if (!string.IsNullOrEmpty(me) && shop.Shelf.ownerCharacter != me)
+			{
+				if (string.IsNullOrEmpty(shop.Shelf.ownerCharacter)) shop.Shelf.ownerCharacter = me;
+				else shop.Shelf.Reset(me);
+			}
+			return shop;
+		}
+
+		private Shop Build(string name)
+		{
 			Shop shop;
-			if (shops.TryGetValue(name, out shop) && shop.Root != null) return shop;
-			List<KeyValuePair<Item, int>> items = StockList();
-			int slots = Mathf.Clamp(items.Count + 24, 16, 88);
+			string key = vendorNames != null ? vendorNames.FirstOrDefault(v => string.Equals(v, name, StringComparison.OrdinalIgnoreCase)) ?? name : name;
+			if (shops.TryGetValue(key, out shop) && shop.Root != null) return shop;
+			name = key;
+			int slots = 64;
+			try { if (ItemDatabase.instance != null) slots = Mathf.Clamp(StockList().Count + 24, 16, 88); } catch (Exception) { }
 			var go = new GameObject("CornerShop_" + name.Replace(' ', '_'));
 			go.SetActive(false);
 			UnityEngine.Object.DontDestroyOnLoad(go);
 			var shelf = go.AddComponent<ShopShelf>();
 			string first = name.Split(' ')[0];
-			shelf.Setup(first + "'s Shop", slots);
+			shelf.Setup("CornerShops_" + name.Replace(' ', '_'), first + "'s Shop", slots);
 			var till = go.AddComponent<ShopTrade>();
 			till.Setup(shelf, first + "'s Shop", buyFactor.Value, sellFactor.Value, traderMoney.Value, traderMoney.Value);
+			shelf.Till = till;
+			SaveController.DontDestroyOnLoadObjects.Add(go);
 			go.SetActive(true);
 			shop = new Shop { Name = name, Root = go, Shelf = shelf, Till = till };
 			shops[name] = shop;
@@ -263,6 +332,19 @@ namespace CornerShopsMod
 				catch (Exception e) { WarnOnce("add:" + kv.Key.Title, "Corner Shops: couldn't stock " + kv.Key.Title + ": " + e.Message); }
 			}
 			shop.Till.MoneyRestock();
+		}
+
+		internal static string CurrentCharacter()
+		{
+			try
+			{
+				string n = Traverse.Create(typeof(SaveController)).Field("CharacterName").GetValue<string>();
+				if (string.IsNullOrEmpty(n)) return null;
+				n = n.Replace('\\', '/').TrimEnd('/');
+				int slash = n.LastIndexOf('/');
+				return slash >= 0 ? n.Substring(slash + 1) : n;
+			}
+			catch (Exception) { return null; }
 		}
 
 		private static readonly HashSet<string> warned = new HashSet<string>();
